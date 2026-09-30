@@ -20,6 +20,24 @@ function formatNumber(value: number) {
   return new Intl.NumberFormat('zh-CN').format(value);
 }
 
+function StatCard({
+  label,
+  value,
+  note,
+}: {
+  label: string;
+  value: string;
+  note: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-slate-900/70 p-5 shadow-soft">
+      <div className="mb-2 text-sm text-slate-400">{label}</div>
+      <div className="text-2xl font-semibold text-white">{value}</div>
+      <div className="mt-3 text-xs text-slate-400">{note}</div>
+    </div>
+  );
+}
+
 export default function HomePage() {
   const [region, setRegion] = useState<'全国' | RegionName>('全国');
   const [metric, setMetric] = useState<'transactions' | 'avgPrice'>('transactions');
@@ -114,19 +132,16 @@ export default function HomePage() {
       label: '交易套数',
       value: `${formatNumber(totalTransactions)} 套`,
       note: '本期成交量',
-      tone: 'cyan',
     },
     {
       label: '成交金额',
       value: `¥${formatNumber(Math.round(totalVolume))} 亿元`,
       note: '累计成交额',
-      tone: 'amber',
     },
     {
       label: '均价水平',
       value: `¥${formatNumber(Math.round(avgPrice))} 元/㎡`,
       note: '区域均价',
-      tone: 'emerald',
     },
   ];
 
@@ -175,11 +190,7 @@ export default function HomePage() {
 
         <section className="mb-8 grid gap-4 md:grid-cols-3">
           {cards.map((card) => (
-            <div key={card.label} className="rounded-2xl border border-white/10 bg-slate-900/70 p-5 shadow-soft">
-              <div className="mb-2 text-sm text-slate-400">{card.label}</div>
-              <div className="text-2xl font-semibold text-white">{card.value}</div>
-              <div className="mt-3 text-xs text-slate-400">{card.note}</div>
-            </div>
+            <StatCard key={card.label} label={card.label} value={card.value} note={card.note} />
           ))}
         </section>
 
