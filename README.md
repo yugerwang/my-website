@@ -1,53 +1,74 @@
-# 全国房产交易数据地图演示站
+@import 'leaflet/dist/leaflet.css';
 
-这个项目基于 Next.js + Tailwind 构建，展示一个全国房产交易数据的交互式地图演示页面，适合用作政府数据发布页、地产分析平台原型或演示站点。
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-## 功能亮点
+:root {
+  color-scheme: dark;
+}
 
-- 全国房产交易热力地图
-- 省级数据筛选与汇总展示
-- 交易量、均价与同比变化卡片
-- 数据来源说明与可扩展接口结构
-- 可替换为真实政府公开数据接口
+html {
+  scroll-behavior: smooth;
+}
 
-## 技术栈
+body {
+  margin: 0;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top left, rgba(34, 211, 238, 0.18), transparent 24%),
+    radial-gradient(circle at bottom right, rgba(59, 130, 246, 0.16), transparent 35%),
+    linear-gradient(135deg, #020817 0%, #0f172a 30%, #111827 100%);
+  color: #e2e8f0;
+  font-family: Arial, Helvetica, sans-serif;
+}
 
-- Next.js
-- React
-- Tailwind CSS
-- Leaflet / OpenStreetMap
+* {
+  box-sizing: border-box;
+}
 
-## 本地运行
+button {
+  transition: all 0.2s ease;
+}
 
-```bash
-npm install
-npm run dev
-```
+.leaflet-container {
+  width: 100%;
+  height: 100%;
+  background: #0f172a;
+}
 
-访问：
+.leaflet-popup-content-wrapper,
+.leaflet-popup-tip {
+  background: rgba(15, 23, 42, 0.97);
+  color: #e2e8f0;
+}
 
-```bash
-http://localhost:3000
-```
+.leaflet-control-zoom {
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  overflow: hidden;
+  border-radius: 12px !important;
+}
 
-## 项目结构
+.leaflet-control-zoom a {
+  color: #e2e8f0 !important;
+  background: rgba(15, 23, 42, 0.9) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
 
-- `app/`：页面与全局样式
-- `components/`：地图和统计组件
-- `lib/`：示例数据与数据模型
+.leaflet-control-attribution {
+  background: rgba(15, 23, 42, 0.78) !important;
+  color: #cbd5e1 !important;
+}
 
-## 数据来源说明
+::-webkit-scrollbar {
+  width: 10px;
+}
 
-本项目默认使用示例数据，用于演示地图交互与数据展示方式。若接入真实数据，可以将政府公开数据（例如各地住房成交、房屋均价、土地交易、政策数据）整理为 CSV/JSON，替换 `lib/data.ts` 中的数据结构。
+::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.8);
+}
 
-## 部署建议
-
-推荐部署到 Vercel：
-
-1. Push 代码到 GitHub
-2. 在 Vercel 中导入该仓库
-3. 使用默认 Next.js 设置即可完成构建部署
-
-## 版权与合规
-
-请遵守各地区政府网站及开放数据平台的使用规则，确保数据抓取、展示和引用合法合规。
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.45);
+  border-radius: 999px;
+}
