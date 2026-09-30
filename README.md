@@ -1,2 +1,45 @@
-# my-website
-A demo website visualizing national housing transaction data on an interactive map.
+# 全国房产交易数据地图演示站
+
+这个项目基于 Next.js + Tailwind 构建，展示一个全国房产交易数据的交互式地图演示页面，适合用作政府数据发布页、地产分析平台原型或演示站点。
+
+## 功能亮点
+
+- 全国房产交易热力地图
+- 省级数据筛选与汇总展示
+- 交易量、均价与同比变化卡片
+- 数据来源说明与可扩展接口结构
+- 适合后续接入真实房产交易政府公开数据
+
+## 技术栈
+
+- Next.js
+- React
+- Tailwind CSS
+- Leaflet / OpenStreetMap
+
+## 本地运行
+
+```bash
+npm install
+npm run dev
+```
+
+访问：
+
+```bash
+http://localhost:3000
+```
+
+## 项目结构
+
+- `app/`：页面与全局样式
+- `components/`：地图和统计组件
+- `lib/`：示例数据与数据模型
+
+## 数据来源说明
+
+本项目默认使用示例数据，用于演示地图交互与数据展示方式。若接入真实数据，可以将政府公开数据（例如各地住房成交、房屋均价、土地交易、政策数据）整理为 CSV/JSON，替换 `lib/data.ts` 中的数据结构。
+
+## 版权与合规
+
+请遵守各地区政府网站及开放数据平台的使用规则，确保数据抓取、展示和引用合法合规。
