@@ -1,61 +1,437 @@
-# 全国房产交易数据地图演示站
+"use client";
 
-这个项目基于 Next.js + Tailwind 构建，展示全国房产交易数据的交互式地图演示页面，适合做政府公开数据展示、地产市场分析平台原型、用户演示页面或产品演示稿。
+import { useEffect, useMemo, useRef, useState } from 'react';
+import L from 'leaflet';
 
-## 功能亮点
+import { marketData, type RegionName } from '@/lib/data';
 
-- 全国房产交易热力地图
-- 区域筛选与城市榜单
-- 成交量、均价、成交额与趋势展示
-- 适配高密度数据展示的 dashboard 风格布局
-- 可扩展为真实政府数据接口或 CSV/JSON 导入结构
+const regionOptions: Array<'全国' | RegionName> = [
+  '全国',
+  '华北',
+  '东北',
+  '华东',
+  '华南',
+  '华中',
+  '西南',
+  '西北',
+];
 
-## 技术栈
+const timeOptions = ['本月', '季度', '年度'];
 
-- Next.js
-- React
-- Tailwind CSS
-- Leaflet / OpenStreetMap
+const monthTrend = [
+  { month: '3月', value: 68 },
+  { month: '4月', value: 72 },
+  { month: '5月', value: 79 },
+  { month: '6月', value: 86 },
+  { month: '7月', value: 90 },
+  { month: '8月', value: 94 },
+];
 
-## 本地运行
+const cityHighlights = [
+  { city: '北京', value: '成交 18,420 套', label: '全国领先' },
+  { city: '上海', value: '均价 57,800 元/㎡', label: '高价格带' },
+  { city: '广东', value: '成交额 248.2 亿元', label: '高增速' },
+  { city: '江苏', value: '成交 24,600 套', label: '核心区域' },
+];
 
-```bash
-npm install
-npm run dev
-```
+function formatNumber(value: number) {
+  return new Intl.NumberFormat('zh-CN').format(value);
+}
 
-访问：
+function StatCard({
+  label,
+  value,
+  note,
+}: {
+  label: string;
+  value: string;
+  note: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-slate-900/70 p-5 shadow-soft">
+      <div className="mb-2 text-sm text-slate-400">{label}</div>
+      <div className="text-2xl font-semibold text-white">{value}</div>
+      <div className="mt-3 text-xs text-slate-400">{note}</div>
+    </div>
+  );
+}
 
-```bash
-http://localhost:3000
-```
+export default function HomePage() {
+  const [region, setRegion] = useState<'全国' | RegionName>('全国');
+  const [metric, setMetric] = useState<'transactions' | 'avgPrice'>('transactions');
+  const [timeRange, setTimeRange] = useState('本月');
+  const mapRef = useRef<HTMLDivElement | null>(null);
+  const mapInstance = useRef<L.Map | null>(null);
+  const layerGroup = useRef<L.LayerGroup | null>(null);
 
-## 项目结构
+  const filteredData = useMemo(() => {
+    if (region === '全国') return marketData;
+    return marketData.filter((item) => item.region === region);
+  }, [region]);
 
-- `app/`：页面与全局样式
-- `lib/`：示例数据与数据模型
+  const totalTransactions = filteredData.reduce((sum, item) => sum + item.transactions, 0);
+  const totalVolume = filteredData.reduce((sum, item) => sum + item.volume, 0);
+  const avgPrice =
+    filteredData.reduce((sum, item) => sum + item.avgPrice, 0) / Math.max(filteredData.length, 1);
 
-## 数据来源说明
+  const regionShare = useMemo(() => {
+    const total = marketData.reduce((sum, item) => sum + item.transactions, 0);
+    return regionOptions
+      .filter((item) => item !== '全国')
+      .map((item) => {
+        const records = marketData.filter((record) => record.region === item);
+        const value = records.reduce((sum, r) => sum + r.transactions, 0);
+        return {
+          name: item,
+          percentage: total === 0 ? 0 : Math.round((value / total) * 100),
+        };
+      })
+      .sort((a, b) => b.percentage - a.percentage)
+      .slice(0, 5);
+  }, []);
 
-本项目默认使用示例数据，用于演示地图交互与展示效果。真实生产场景下，可以将各地住房成交、房价、土地交易、政策数据整理为 CSV/JSON，替换 `lib/data.ts` 中的数据结构。
+  useEffect(() => {
+    if (!mapRef.current || mapInstance.current) return;
 
-## 部署建议
+    const map = L.map(mapRef.current, {
+      zoomControl: true,
+      attributionControl: true,
+      scrollWheelZoom: true,
+    }).setView([35.5, 105.0], 4);
 
-推荐部署到 Vercel：
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap 贡献者',
+    }).addTo(map);
 
-1. Push 代码至 GitHub
-2. 在 Vercel 中导入该仓库
-3. 使用默认 Next.js 配置完成构建与部署
+    const layers = L.layerGroup().addTo(map);
+    layerGroup.current = layers;
+    mapInstance.current = map;
+  }, []);
 
-## 版权与合规
+  useEffect(() => {
+    if (!mapInstance.current || !layerGroup.current) return;
 
-请遵循各地区政府网站及开放数据平台的使用规则，确保数据抓取、展示和引用合法合规。
+    const group = layerGroup.current;
+    group.clearLayers();
 
-## 适用场景
+    filteredData.forEach((item) => {
+      const radius = metric === 'transactions'
+        ? 8 + Math.sqrt(item.transactions) * 0.7
+        : 8 + Math.sqrt(item.avgPrice / 100) * 0.9;
 
-- 房地产市场观察平台
-- 政府公开数据展示页
-- 投资分析与项目汇报页
-- 数据看板原型
+      const color = metric === 'transactions' ? '#22d3ee' : '#fbbf24';
 
+      const circle = L.circleMarker([item.lat, item.lng], {
+        radius,
+        color,
+        fillColor: color,
+        fillOpacity: 0.72,
+        weight: 1,
+      });
 
+      const popupHtml = `
+        <div style="min-width: 170px; line-height: 1.7; font-size: 12px; color: #0f172a;">
+          <div><strong>${item.name}</strong></div>
+          <div>成交量：${formatNumber(item.transactions)}套</div>
+          <div>均价：¥${formatNumber(item.avgPrice)}元/㎡</div>
+          <div>成交额：¥${formatNumber(item.volume)}亿元</div>
+          <div>同比：${item.yoy > 0 ? '+' : ''}${item.yoy}%</div>
+        </div>
+      `;
+
+      circle.bindPopup(popupHtml);
+      circle.bindTooltip(item.name, { direction: 'top', opacity: 0.9 });
+      circle.addTo(group);
+    });
+
+    const bounds = L.latLngBounds(filteredData.map((item) => [item.lat, item.lng] as [number, number]));
+    if (filteredData.length > 1) {
+      mapInstance.current.fitBounds(bounds.pad(0.4), { animate: true });
+    } else if (filteredData.length === 1) {
+      mapInstance.current.setView([filteredData[0].lat, filteredData[0].lng], 6);
+    }
+  }, [filteredData, metric]);
+
+  useEffect(() => {
+    return () => {
+      if (mapInstance.current) {
+        mapInstance.current.remove();
+        mapInstance.current = null;
+      }
+    };
+  }, []);
+
+  const cards = [
+    {
+      label: '交易套数',
+      value: `${formatNumber(totalTransactions)} 套`,
+      note: '本期成交量',
+    },
+    {
+      label: '成交金额',
+      value: `¥${formatNumber(Math.round(totalVolume))} 亿元`,
+      note: '累计成交额',
+    },
+    {
+      label: '均价水平',
+      value: `¥${formatNumber(Math.round(avgPrice))} 元/㎡`,
+      note: '区域均价',
+    },
+  ];
+
+  return (
+    <main className="min-h-screen bg-slate-950 text-slate-100">
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <header className="mb-8 rounded-3xl border border-white/10 bg-slate-900/80 p-6 shadow-soft backdrop-blur-sm">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-400 to-blue-600 text-lg font-bold text-white">
+                H
+              </div>
+              <div>
+                <div className="text-[11px] uppercase tracking-[0.26em] text-cyan-400">Housing Market</div>
+                <div className="text-lg font-semibold text-white">全国房产交易数据监测</div>
+              </div>
+            </div>
+
+            <nav className="hidden items-center gap-6 text-sm text-slate-300 md:flex">
+              <span className="cursor-pointer text-cyan-300">数据概览</span>
+              <span className="cursor-pointer">区域热力</span>
+              <span className="cursor-pointer">政策与来源</span>
+            </nav>
+          </div>
+        </header>
+
+        <section className="mb-8 grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+          <div className="rounded-3xl border border-white/10 bg-gradient-to-br from-slate-900 via-slate-900 to-cyan-950/50 p-6 shadow-soft">
+            <div className="mb-4 inline-flex items-center rounded-full border border-cyan-500/30 bg-cyan-500/10 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.2em] text-cyan-300">
+              Big Data Decision Support
+            </div>
+            <h1 className="max-w-xl text-4xl font-semibold tracking-tight text-white md:text-5xl">
+              全国房产交易态势全景地图
+            </h1>
+            <p className="mt-4 max-w-xl text-base leading-7 text-slate-300">
+              聚焦全国重点城市与区域市场的成交量、均价、同比趋势，支撑房地产市场观察、政策研究和数据展示场景的展示分析。
+            </p>
+            <div className="mt-6 flex flex-wrap gap-3">
+              <button className="rounded-xl bg-cyan-500 px-4 py-2.5 text-sm font-medium text-slate-950 shadow-lg shadow-cyan-500/20 transition hover:bg-cyan-400">
+                下载报告
+              </button>
+              <button className="rounded-xl border border-white/10 bg-slate-800/80 px-4 py-2.5 text-sm font-medium text-white hover:border-cyan-400/50 hover:text-cyan-300">
+                查看数据源
+              </button>
+            </div>
+          </div>
+
+          <div className="rounded-3xl border border-white/10 bg-slate-900/80 p-5 shadow-soft">
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Market Snapshot</p>
+                <h2 className="mt-2 text-xl font-semibold text-white">本月运行态势</h2>
+              </div>
+              <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-medium text-emerald-300">
+                +8.4%
+              </span>
+            </div>
+
+            <div className="space-y-4">
+              <div className="rounded-2xl border border-white/10 bg-slate-800/80 p-4">
+                <div className="text-sm text-slate-400">全国成交增速</div>
+                <div className="mt-2 flex items-end justify-between">
+                  <div className="text-3xl font-semibold text-white">8.4%</div>
+                  <div className="text-xs text-emerald-300">较上月 +1.7%</div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-2xl border border-white/10 bg-slate-800/80 p-4">
+                  <div className="text-xs text-slate-400">重点城市</div>
+                  <div className="mt-2 text-xl font-semibold text-white">27</div>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-slate-800/80 p-4">
+                  <div className="text-xs text-slate-400">覆盖区域</div>
+                  <div className="mt-2 text-xl font-semibold text-white">7</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="mb-8 grid gap-4 md:grid-cols-3">
+          {cards.map((card) => (
+            <StatCard key={card.label} label={card.label} value={card.value} note={card.note} />
+          ))}
+        </section>
+
+        <section className="mb-8 flex flex-wrap gap-3">
+          {timeOptions.map((option) => (
+            <button
+              key={option}
+              onClick={() => setTimeRange(option)}
+              className={`rounded-full border px-4 py-2 text-sm transition ${
+                timeRange === option
+                  ? 'border-cyan-400 bg-cyan-500/10 text-cyan-300'
+                  : 'border-white/10 bg-slate-900/60 text-slate-300 hover:border-cyan-500/40 hover:text-cyan-300'
+              }`}
+            >
+              {option}
+            </button>
+          ))}
+
+          {regionOptions.map((option) => (
+            <button
+              key={option}
+              onClick={() => setRegion(option)}
+              className={`rounded-full border px-4 py-2 text-sm transition ${
+                region === option
+                  ? 'border-cyan-400 bg-cyan-500/10 text-cyan-300'
+                  : 'border-white/10 bg-slate-900/60 text-slate-300 hover:border-cyan-500/40 hover:text-cyan-300'
+              }`}
+            >
+              {option}
+            </button>
+          ))}
+        </section>
+
+        <section className="grid gap-6 xl:grid-cols-[1.65fr_0.95fr]">
+          <div className="overflow-hidden rounded-3xl border border-white/10 bg-slate-900/80 shadow-soft">
+            <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
+              <div>
+                <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Map View</p>
+                <h2 className="text-xl font-medium text-white">区域市场态势</h2>
+              </div>
+              <div className="flex gap-2 rounded-full border border-white/10 bg-slate-800/80 p-1">
+                <button
+                  onClick={() => setMetric('transactions')}
+                  className={`rounded-full px-3 py-1.5 text-xs ${
+                    metric === 'transactions' ? 'bg-cyan-500 text-slate-950' : 'text-slate-300'
+                  }`}
+                >
+                  成交套数
+                </button>
+                <button
+                  onClick={() => setMetric('avgPrice')}
+                  className={`rounded-full px-3 py-1.5 text-xs ${
+                    metric === 'avgPrice' ? 'bg-amber-400 text-slate-950' : 'text-slate-300'
+                  }`}
+                >
+                  均价
+                </button>
+              </div>
+            </div>
+            <div ref={mapRef} className="h-[560px] w-full bg-slate-900" />
+          </div>
+
+          <aside className="space-y-6">
+            <div className="rounded-3xl border border-white/10 bg-slate-900/80 p-5 shadow-soft">
+              <p className="mb-4 text-xs uppercase tracking-[0.2em] text-slate-400">区域榜单</p>
+              <div className="space-y-3">
+                {filteredData
+                  .slice()
+                  .sort((a, b) => b.transactions - a.transactions)
+                  .slice(0, 5)
+                  .map((item, index) => (
+                    <div key={item.code} className="flex items-center justify-between rounded-xl border border-white/10 bg-slate-800/80 px-3 py-2">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-cyan-500/15 text-xs font-medium text-cyan-300">
+                          {index + 1}
+                        </div>
+                        <div>
+                          <div className="text-sm font-medium text-white">{item.name}</div>
+                          <div className="text-[11px] text-slate-400">{item.region}</div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-sm font-medium text-cyan-300">{formatNumber(item.transactions)}套</div>
+                        <div className="text-[11px] text-slate-400">{item.yoy > 0 ? '+' : ''}{item.yoy}%</div>
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            </div>
+
+            <div className="rounded-3xl border border-white/10 bg-slate-900/80 p-5 shadow-soft">
+              <p className="mb-4 text-xs uppercase tracking-[0.2em] text-slate-400">区域分布</p>
+              <div className="space-y-3">
+                {regionShare.map((item) => (
+                  <div key={item.name}>
+                    <div className="mb-1 flex items-center justify-between text-xs text-slate-300">
+                      <span>{item.name}</span>
+                      <span>{item.percentage}%</span>
+                    </div>
+                    <div className="h-2.5 overflow-hidden rounded-full bg-slate-800">
+                      <div
+                        className="h-full rounded-full bg-gradient-to-r from-cyan-400 to-blue-500"
+                        style={{ width: `${item.percentage}%` }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </aside>
+        </section>
+
+        <section className="mt-8 grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
+          <div className="rounded-3xl border border-white/10 bg-slate-900/80 p-5 shadow-soft">
+            <div className="mb-5 flex items-center justify-between">
+              <div>
+                <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Trend</p>
+                <h3 className="mt-2 text-xl font-semibold text-white">近半年成交走势</h3>
+              </div>
+              <span className="text-sm text-emerald-300">上升趋势</span>
+            </div>
+
+            <div className="flex h-40 items-end gap-3">
+              {monthTrend.map((entry) => (
+                <div key={entry.month} className="flex flex-1 flex-col items-center justify-end gap-2">
+                  <div
+                    className="w-full rounded-t-xl bg-gradient-to-t from-cyan-500 to-blue-400 shadow-lg shadow-cyan-500/20"
+                    style={{ height: `${entry.value}%` }}
+                  />
+                  <span className="text-[11px] text-slate-400">{entry.month}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-3xl border border-white/10 bg-slate-900/80 p-5 shadow-soft">
+            <p className="mb-5 text-xs uppercase tracking-[0.2em] text-slate-400">城市亮点</p>
+            <div className="space-y-3">
+              {cityHighlights.map((item) => (
+                <div key={item.city} className="rounded-2xl border border-white/10 bg-slate-800/80 p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="text-sm font-medium text-white">{item.city}</div>
+                    <span className="rounded-full border border-cyan-500/20 bg-cyan-500/10 px-2 py-0.5 text-[10px] uppercase tracking-[0.12em] text-cyan-300">
+                      {item.label}
+                    </span>
+                  </div>
+                  <div className="mt-2 text-sm text-slate-300">{item.value}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="mt-8 grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+          <div className="rounded-3xl border border-white/10 bg-slate-900/80 p-5 shadow-soft">
+            <p className="mb-4 text-xs uppercase tracking-[0.2em] text-slate-400">数据来源</p>
+            <ul className="space-y-3 text-sm text-slate-300">
+              <li>• 住房成交数据：各省市政府公开交易平台</li>
+              <li>• 房价信息：地方住建委与国土部门数据</li>
+              <li>• 统计口径：示例版地图数据，用于展示结构与交互</li>
+              <li>• 后续扩展：CSV、JSON、API 接口接入</li>
+            </ul>
+          </div>
+
+          <div className="rounded-3xl border border-white/10 bg-slate-900/80 p-5 shadow-soft">
+            <div className="text-xs uppercase tracking-[0.2em] text-slate-400">参考说明</div>
+            <div className="mt-3 text-sm leading-6 text-slate-300">
+              数据来源与统计口径需根据各地公开数据更新，适合制作政府数据发布页、项目演示页和分析平台工作台。
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+  );
+}
